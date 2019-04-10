@@ -1,17 +1,8 @@
-"""
-Check https://arxiv.org/pdf/1707.03429.pdf for grammar specification
-"""
+# Check https://arxiv.org/pdf/1707.03429.pdf for grammar specification
 
-
-using MLStyle
-
-macro parserc(x)
-    collect_context(x)
-end
-
-@parserc begin
+@parser begin
     # define ignorances
-    ignore{r"\s"}
+    ignore{space}
 
     @grammar
     # define grammars
@@ -69,4 +60,5 @@ end
     id        := r"\G[a-z]{1}[A-Za-z0-9_]*"
     real      := r"\G([0-9]+\.[0-9]*|[0-9]*\.[0.9]+)([eE][-+]?[0-9]+)?"
     nninteger := r"\G([1-9]+[0-9]*|0)"
+    space     := r"\G\s+"
 end

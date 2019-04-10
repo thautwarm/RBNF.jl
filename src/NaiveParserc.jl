@@ -17,13 +17,13 @@ TokenView(src :: Vector{Token}) = TokenView(1, length(src), src)
 struct CtxTokens{Res}
     tokens :: TokenView
     maxfetched :: Int
-    res :: Res
+    state :: Res
 end
 
 CtxTokens{A}(tokens :: TokenView) where A = CtxTokens(tokens, 1, crate(A))
 
 function inherit_effect(ctx0 :: CtxTokens{A}, ctx1 :: CtxTokens{B}) where {A, B}
-    CtxTokens(ctx0.tokens, max(ctx1.maxfetched, ctx0.maxfetched), ctx0.res)
+    CtxTokens(ctx0.tokens, max(ctx1.maxfetched, ctx0.maxfetched), ctx0.state)
 end
 
 orparser(pa, pb) = function (ctx_tokens)
@@ -87,7 +87,41 @@ hlistparser(ps) = function (ctx_tokens)
             break
         end
     end
-    (hlist === nothing ? nothing : Tuple(hlist), remained)
+    (hlist, remained)
+end
+
+# what is a htuple? ... In fact a tuple with multielements is called a hlist,
+# but in dynamic lang things get confusing..
+htupleparser(ps) = function (ctx_tokens)
+    hlist = Vector{Union{T, Nothing} where T}(nothing, length(ps))
+    done = false
+    remained = ctx_tokens
+    for (i, p) in enumerate(ps)
+        @match p(remained) begin
+            (nothing, a) =>
+                begin
+                    hlist = nothing
+                    remained = a
+                    done = true
+                end
+            (elt, a) =>
+                begin
+                    hlist[i] = elt
+                    remained = a
+                end
+        end
+        if done
+            break
+        end
+    end
+    (hlist !== nothing ? Tuple(hlist) : nothing, remained)
+end
+
+trans(f, p) = function (ctx_tokens)
+    @match p(ctx_tokens) begin
+        (nothing, _) && a => a
+        (arg, remained) => (f(arg), remained)
+    end
 end
 
 optparser(p) = function (ctx_tokens)
@@ -101,7 +135,9 @@ updateparser(p, f) = function (ctx_tokens)
     @match p(ctx_tokens) begin
         (nothing, _) && a =>  a
         (a, remained) =>
-           (a, update_res(remained, f(ctx_tokens.res, a)))
+            let a = f(ctx_tokens.ctx, a)
+                (a, update_state(remained, a))
+            end
     end
 end
 
@@ -141,8 +177,8 @@ function direct_lr(init, trailer, reducer)
     end
 end
 
-function update_res(ctx:: CtxTokens{A}, res::A) where A
-    CtxTokens(ctx.tokens, ctx.maxfetched, res)
+function update_state(ctx:: CtxTokens{A}, state::A) where A
+    CtxTokens(ctx.tokens, ctx.maxfetched, state)
 end
 
 function crate
