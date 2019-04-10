@@ -5,7 +5,7 @@ Several examples are presented via tests.
 Last afternoon Old Luo told me to help him with the QASM parser.
 
 However I found something incredibly interesting so I just spent about 13 hours to achieve a handy parser generator in Julia, bringing about some useful ideas like
-Lens implemented in generated functions and, more statically ast rewriting compared to
+[Lens implemented in generated functions](https://github.com/thautwarm/RBNF.jl/blob/master/src/Lens.jl) and, more static ast rewriting compared to
 [corresponding Python implementation](https://github.com/thautwarm/RBNF).
 
 However, for I have TOEFL exams in very recent days, there're a large number of optimizations and specializations I haven't performed yet.
