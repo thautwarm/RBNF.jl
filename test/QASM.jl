@@ -3,10 +3,10 @@
 module QASM
 using RBNF
 
-struct QSAMLang end
+struct QASMLang end
 second((a, b)) = b
 
-RBNF.@parser QSAMLang begin
+RBNF.@parser QASMLang begin
     # define ignorances
     ignore{space}
 
@@ -19,7 +19,7 @@ RBNF.@parser QSAMLang begin
     # stmts
     ifstmt      := ["if", '(', l=id, "==", r=nninteger, ')', body=qop]
     opaque      := ["opaque", id=id, ['(', [arglist1=idlist].?, ')'].? , arglist2=idlist, ';']
-    barrier     := ["barrier", value=anylist]
+    barrier     := ["barrier", value=mixedlist]
     decl        := [regtype="qreg" | "creg", id=id, '[', int=nninteger, ']', ';']
 
     # gate
@@ -34,11 +34,10 @@ RBNF.@parser QSAMLang begin
     measure     := ["measure", arg1=argument, "->", arg2=argument, ';']
 
     uop         := value=(iduop | u | cx)
-    iduop      := [op=id, ['(', [lst1=explist].?, ')'].?, lst2=anylist, ';']
+    iduop      := [op=id, ['(', [lst1=explist].?, ')'].?, lst2=mixedlist, ';']
     u          := ['U', '(', exprs=explist, ')', arg=argument, ';']
     cx         := ["CX", arg1=argument, ',', arg2=argument, ';']
 
-    anylist    := value=(idlist | mixedlist)
     idlist     := value=@direct_recur begin
         init = id
         prefix = (recur, (',', id) => second)
@@ -91,8 +90,8 @@ qreg q[3];
 qreg a[2];
 creg c[3];
 creg syn[2];
-cu1(pi/2) q[0],q[1]
+cu1(pi/2) q[0],q[1];
 """
-ast, ctx = RBNF.runparser(mainprogram, RBNF.runlexer(QSAMLang, src1))
+ast, ctx = RBNF.runparser(mainprogram, RBNF.runlexer(QASMLang, src1))
 @info :qasmparsing ast
 end

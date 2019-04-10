@@ -20,10 +20,10 @@ The grammar is based on https://arxiv.org/pdf/1707.03429.pdf and tiny modified.
 ```julia
 using RBNF
 
-struct QSAMLang end
+struct QASMLang end
 second((a, b)) = b
 
-RBNF.@parser QSAMLang begin
+RBNF.@parser QASMLang begin
     # define ignorances
     ignore{space}
 
