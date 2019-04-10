@@ -40,9 +40,6 @@ tupleparser(pa, pb) = function (ctx_tokens)
     end
 end
 
-"""
-empty to infty, not one or more!
-"""
 manyparser(p) = function (ctx_tokens)
     res = []
     remained = ctx_tokens
@@ -54,7 +51,7 @@ manyparser(p) = function (ctx_tokens)
         push!(res, elt)
     end
 
-    (res, remained)
+    (isempty(res) ? nothing : res, remained)
 end
 
 hlistparser(ps) = function (ctx_tokens)
@@ -158,17 +155,17 @@ function direct_lr(init, trailer, reducer)
         end
 
         while true
-            m, remained = miscellaneous = trailer(remained)
-            if m === nothing
+            miscellaneous, remained = trailer(remained)
+            if miscellaneous === nothing
                 break
             end
-            res = reducer(res, m)
+            res = reducer(res, miscellaneous)
         end
         (res, remained)
     end
 end
 
-function update_state(ctx:: CtxTokens{A}, state::A) where A
+function update_state(ctx:: CtxTokens{A}, state::B) where {A, B}
     CtxTokens(ctx.tokens, ctx.maxfetched, state)
 end
 
@@ -191,6 +188,14 @@ end
 
 function crate(::Type{Union{T, Nothing}}) where T
     nothing
+end
+
+function crate(::Type{T}) where T <: Number
+    zero(T)
+end
+
+function crate(::Type{String})
+    ""
 end
 
 function crate(::Type{Any}) where T

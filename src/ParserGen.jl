@@ -57,6 +57,7 @@ function collect_context(node)
                 begin
                     collector = @λ begin
                         :($name := $node) ->  push!(tokens, (name, node))
+                        a -> throw(a)
                     end
                 end
             IsMacro{:grammar} =>
@@ -67,6 +68,7 @@ function collect_context(node)
                                 collect_lexer!(unnamed_lexers, :unnamed, node)
                                 push!(grammars, (name, node))
                             end
+                        a -> throw(a)
                     end
                 end
             :(ignore{$(ignores_...)}) =>
@@ -119,8 +121,16 @@ function parser_gen(lang, pc :: PContext)
     lexer_table = pc.lexer_table
     runlexer_no_ignore_sym = gensym("lexer")
     push!(decl_seqs, :($runlexer_no_ignore_sym = $(genlex(lexer_table))))
-    names = :($Set([$(map(QuoteNode, pc.ignores))...]))
-    push!(decl_seqs, :($RBNF.runlexer(::$Type{$lang}, str) = $filter(x -> !(x in $names),  $runlexer_no_ignore_sym(str))))
+    names = :($Set([$(map(QuoteNode, pc.ignores)...)]))
+    push!(decl_seqs, :(
+        $RBNF.runlexer(::$Type{$lang}, str) =
+            $filter(
+                function (:: $Token{k}, ) where k
+                    !(k in $names)
+                end,
+                $runlexer_no_ignore_sym(str))
+            )
+    )
     for (each, _) in pc.grammars
         struct_name = to_struct_name(each)
         push!(decl_seqs, quote
@@ -162,7 +172,6 @@ function grammar_gen(name::Symbol, def_body)
     analyse_closure!(vars, def_body)
     struct_name = to_struct_name(name)
     parser_skeleton_name = gensym()
-    state_name = gensym()
     struct_def = quote
         struct $struct_name
             $([Expr(:(::), k, v) for (k, v) in vars]...)
@@ -173,9 +182,16 @@ function grammar_gen(name::Symbol, def_body)
     parser_def = quote
         $parser_skeleton_name = $(make(def_body, name))
         function $name(ctx_in)
-            $state_name = $crate($struct_name)
-            ctx = $update_state(ctx_in, $state_name)
-            $parser_skeleton_name(ctx)
+            cur_state = $crate($struct_name)
+            old_state = ctx_in.state
+            ctx1 = $update_state(ctx_in, cur_state)
+            (res, ctx2) = $parser_skeleton_name(ctx1)
+            ctx_out = $update_state(ctx2, old_state)
+            if res === nothing
+                (nothing, ctx_out)
+            else
+                (ctx2.state, ctx_out)
+            end
         end
     end
     (struct_def, parser_def)
@@ -203,7 +219,7 @@ function make(node, top::Symbol)
                 :($htupleparser([$(elt_ps...)]))
             end
         :($a | $b) =>
-            let pa = makerec(a), pb = makerec(pb)
+            let pa = makerec(a), pb = makerec(b)
                 :($orparser($pa, $pb))
             end
         MacroSplit{:or}(quote $(nodes...) end) =>
@@ -219,10 +235,12 @@ function make(node, top::Symbol)
             let pa = makerec(a)
                 :($trans($f, $pa))
             end
-        :(Option($a)) =>
+
+        :($a.?) =>
             let pa = makerec(a)
                 :($optparser($pa))
             end
+
         :($var :: $_ = $a) || :($var = $a) =>
             let pa = makerec(a)
                 quote
@@ -242,10 +260,42 @@ function make(node, top::Symbol)
                 end
             end
         a :: Symbol => a
+
+        MacroSplit{:direct_recur}(quote $(args...) end) =>
+            begin
+                init = nothing
+                prefix = nothing
+                for each in args
+                    @match each begin
+                        :(init = $init_) => (init = init_)
+                        :(prefix = $prefix_) => (prefix = prefix_)
+                        _ => ()
+                    end
+                end
+                reducer, trailer = @match prefix begin
+                    :[recur, $(trailer...)] => (:((prev, now) -> [prev, now...]), trailer)
+                    :(recur, $(trailer...), ) => (:((prev, now) -> (prev, now...)), trailer)
+                    _ => throw("invalid syntax for direct_recur")
+                end
+                if isempty(trailer)
+                    throw("malformed left recursion found: `a := a`")
+                end
+                let initp = makerec(init), trailerp = makerec(:[$(trailer...)])
+                    :($direct_lr($initp, $trailerp, $reducer))
+                end
+            end
+        z => throw(z)
     end
+end
+
+rmlines = @λ begin
+           e :: Expr           -> Expr(e.head, filter(x -> x !== nothing, map(rmlines, e.args))...)
+             :: LineNumberNode -> nothing
+           a                   -> a
 end
 
 
 macro parser(lang, node)
-    parser_gen(lang, collect_context(node)) |> esc
+    ex = parser_gen(lang, collect_context(node))
+    esc(ex)
 end
