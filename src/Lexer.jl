@@ -40,13 +40,13 @@ macro genlex(lexer_table)
             offset :: Int64  = 1
             ret = Token[]
             N :: Int64 = length(tokens)
-            while offset < N
+            while offset <= N
                 $(_genlex(:tokens, :ret, lexer_table))
             end
             ret
         end
     end
-    println(rmlines(ex))
+    # println(rmlines(ex))
     ex
 end
 

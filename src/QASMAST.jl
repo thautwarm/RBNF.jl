@@ -1,79 +1,72 @@
 """
 Check https://arxiv.org/pdf/1707.03429.pdf for grammar specification
 """
-module Parser
+
 
 using MLStyle
 
 macro parserc(x)
-    @match x begin
-        quote
-            $(args...)
-        end =>
-            for (i, each) in enumerate(args)
-                @info i each
-            end
-    end
-
+    collect_context(x)
 end
 
 @parserc begin
     # define ignorances
     ignore{r"\s"}
 
+    @grammar
     # define grammars
-    mainprogram := "OPENQASM" + real + ';' + program
-    program     := statement + '|' + program
+    mainprogram := ["OPENQASM", real, ';', program]
+    program     := [statement, '|', program]
     statement   := @or begin
         decl
-        gatedecl + [goplist] + '}'
-        "opaque" + id + ['(' + [idlist] + ')'] + idlist + ';'
+        [gatedecl, Option(goplist), '}']
+        ["opaque", id, Option(('(', Option(idlist), ')')), idlist, ';']
         qop
-        "if" + '(' + id + "==" + nninteger + ')' + qop
-        "barrier" anylist
+        ["if", '(', id, "==", nninteger, ')', qop]
+        ["barrier", anylist]
     end
 
-    decl        := ("qreg" | "creg") + id + '[' + nninetger + ']' + ';'
-    gatedecl    := "gate" + id + ['(' + [idlist] + ')'] + idlist + '{'
+    decl        := ["qreg" | "creg", id, '[', nninetger, ']', ';']
+    gatedecl    := ["gate", id, Option(('(', Option(idlist), ')')), idlist, '{']
 
-    goplist     := @direct_recur begin
-        init   = uop | "barrier" + idlist + ';'
-        prefix = recur
-    end
+    goplist     := Many(uop | ["barrier", idlist, ';'])
 
-    qop         := uop | "measure" + argument + "->" + argument + ';' | "reset" + argument + ';'
+    qop         := uop | ["measure", argument, "->", argument, ';'] | ["reset", argument, ';']
     uop         := @or begin
-        'U' + '(' + explist + ')' + argument + ';'
-        "CX" + argument + ',' + argument + ';'
-        id + ['(' + [explist] + ')'] + anylist + ';'
+        ['U', '(', explist, ')', argument, ';']
+        ["CX", argument, ',', argument, ';']
+        [id, Option(('(', Option(explist), ')')) + anylist + ';']
     end
     anylist    := idlist | mixedlist
-    idlist     := id + [',' + idlist]
-    mixedlist  := @direct_recur begin
-        init = id + ['[' + nninteger + ']']
-        prefix = recur + ','
+    idlist     := @direct_recur begin
+        init = id
+        Prefix = (recur, ',', id)
     end
 
-    argument   := id + ['[' + nninteger + ']']
+    mixeditem   := (id, Option(('[', nninteger, ']')))
+    mixedlist   := @direct_recur begin
+        init = mixeditem
+        prefix = (recur, ',', mixeditem)
+    end
+
+    argument   := (id, Option(('[', nninteger, ']')))
 
     explist    := @direct_recur begin
         init = exp
-        prefix = recur +  ','
+        prefix = (recur,  ',', exp)
     end
 
+    atom       := real | nninteger | "pi" | id | + fn + '(' + exp + ')' | '(' + exp + ')' | '-' + exp
     exp        := @direct_recur begin
-        init = real | nninteger | "pi" | id | + fn + '(' + exp + ')' | '(' + exp + ')' | '-' + exp
-        trailer = binop
+        init = atom
+        prefix = (recur, binop, atom)
     end
     fn         := "sin" | "cos" | "tan" | "exp" | "ln" | "sqrt"
     binop      := '+' | '-' | '*' | '/'
 
     # define tokens
-
-    id        === r"\G[a-z]{1}[A-Za-z0-9_]*"
-    real      === r"\G([0-9]+\.[0-9]*|[0-9]*\.[0.9]+)([eE][-+]?[0-9]+)?"
-    nninteger === r"\G([1-9]+[0-9]*|0)"
-end
-
-
+    @token
+    id        := r"\G[a-z]{1}[A-Za-z0-9_]*"
+    real      := r"\G([0-9]+\.[0-9]*|[0-9]*\.[0.9]+)([eE][-+]?[0-9]+)?"
+    nninteger := r"\G([1-9]+[0-9]*|0)"
 end

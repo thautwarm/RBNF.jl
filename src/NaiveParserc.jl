@@ -1,6 +1,9 @@
+module NPC
+using QASM2Jl.Token
+using QASM2Jl.Lexer
+
 using MLStyle
-include("Token.jl")
-include("Lexer.jl")
+
 
 
 struct TokenView
@@ -60,6 +63,31 @@ manyparser(p) = function (ctx_tokens)
     else
         (res, remained)
     end
+end
+
+hlistparser(ps) = function (ctx_tokens)
+    hlist = Vector{Union{T, Nothing} where T}(nothing, length(ps))
+    done = false
+    remained = ctx_tokens
+    for (i, p) in enumerate(ps)
+        @match p(remained) begin
+            (nothing, a) =>
+                begin
+                    hlist = nothing
+                    remained = a
+                    done = true
+                end
+            (elt, a) =>
+                begin
+                    hlist[i] = elt
+                    remained = a
+                end
+        end
+        if done
+            break
+        end
+    end
+    (hlist === nothing ? nothing : Tuple(hlist), remained)
 end
 
 optparser(p) = function (ctx_tokens)
@@ -147,18 +175,10 @@ end
 # preddio(::Token{:dio}) = true
 # preddio(_) = false
 
-# p = direct_lr(
-#     tokenparser(preda),
-#     orparser(tokenparser(prednum), tokenparser(preddio)),
-#     (res, m) -> (res, m))
-
-# source = lexer("a111diodio")
-
-# tokens = TokenView(source)
-# ctx = CtxTokens{Nothing}(tokens)
-# println(p(ctx)[1])
-
-
-
-
-
+# p = hlistparser([tokenparser(preddio), tokenparser(prednum), tokenparser(preda)])
+# source = lexer("dio111a")
+# println(source)
+    # tokens = TokenView(source)
+    # ctx = CtxTokens{Nothing}(tokens)
+    # println(p(ctx))
+end
