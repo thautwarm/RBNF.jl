@@ -28,7 +28,7 @@ end
 
 @active MacroSplit{s}(x) begin
     @match x begin
-        Expr(:macrocall, &(Symbol("@", s)), ::LineNumberNode, args...) => Tuple(args)
+        Expr(:macrocall, &(Symbol("@", s)), ::LineNumberNode, arg) => arg
         _ => nothing
     end
 end
@@ -76,13 +76,13 @@ function collect_context(node)
         collect_lexer!(lexers, k, v)
     end
     union!(lexers, unnamed_lexers)
-    lexer_table = [(k, mklexer(v)) for (k, v) in lexers]
+    lexer_table :: Vector{Tuple{Symbol, Function}} = [(k, mklexer(v)) for (k, v) in lexers]
     PContext(lexer_table, ignores, tokens, grammars)
 end
 
 function parser_gen(pc :: PContext)
     decl_seqs = []
-    for each in  keys(pc.tokens)
+    for (each, _) in  pc.tokens
         push!(decl_seqs, quote
             function $each()
                 f(::$Token{$(QuoteNode(each))}) = true
@@ -92,7 +92,7 @@ function parser_gen(pc :: PContext)
         end)
     end
 
-    for each in keys(pc.grammars)
+    for (each, _) in pc.grammars
         push!(decl_seqs, quote
             function $each
             end
@@ -110,10 +110,10 @@ function parser_gen(pc :: PContext)
     append!(decl_seqs, parser_defs)
 
     # make lexer
-    push!(decl_seqs, :(LEXER_TABLE = $pc.lexer_table))
-    push!(decl_seqs, :(runlexer_no_ignore = $(@__MODULE__).@genlex LEXER_TABLE))
+    lexer_table = pc.lexer_table
+    push!(decl_seqs, :(runlexer_no_ignore = $(genlex(lexer_table))))
     names = :($Set([$(map(QuoteNode, pc.ignores))...]))
-    push!(decl_seqs, :(runlexer_no_ignore(str) = $filter(x -> !(x in $names),  runlexer_no_ignore(str))))
+    push!(decl_seqs, :(runlexer(str) = $filter(x -> !(x in $names),  runlexer_no_ignore(str))))
 
     Expr(:block, decl_seqs...)
 end
@@ -121,12 +121,12 @@ end
 
 function analyse_closure!(vars, node)
     @match node begin
-        :($a :: $t = $n) | :($a :: $t << $n)  =>
+        :($a :: $t = $n) || :($a :: $t << $n)  =>
             begin
                 vars[a] = t
                 analyse_closure!(vars, n)
             end
-        :($a = $n) | :($a << $n) =>
+        :($a = $n) || :($a << $n) =>
             begin
                 get!(vars, a) do
                     Any
@@ -156,7 +156,7 @@ function grammar_gen(name::Symbol, def_body)
         end
 
         parser_def = quote
-            $parser_skeleton_name = $(make(def_body))
+            $parser_skeleton_name = $(make(def_body, name))
             function $name(ctx_in)
                 $state_name = $struct_name($([:($crate($v)) for v in values(vars)]...))
                 ctx = $update_state(ctx_in, $state_name)
@@ -176,7 +176,7 @@ end
 function make(node, top::Symbol)
     makerec(node) = make(node, top)
     @match node begin
-        MacroSplit(:r_str, s) =>
+        MacroSplit{:r_str}(s) =>
             let r = Regex(s)
                 :($tokenparser(x -> $match($r, x.str) !== nothing))
             end
@@ -197,7 +197,7 @@ function make(node, top::Symbol)
             let pa = makerec(a), pb = makerec(pb)
                 :($orparser($pa, $pb))
             end
-        MacroSplit(:or, quote $(nodes...) end) =>
+        MacroSplit{:or}(quote $(nodes...) end) =>
             foldl(map(makerec, filter(x -> !(x isa LineNumberNode), nodes))) do prev, each
                 :($orparser($prev, $each))
             end
@@ -214,7 +214,7 @@ function make(node, top::Symbol)
             let pa = makerec(a)
                 :($optparser($pa))
             end
-        :($var = $a) | :($var :: $_ = $a) =>
+        :($var = $a) || :($var :: $_ = $a) =>
             let pa = makerec(a)
                 quote
                 $updateparser($pa,
@@ -223,7 +223,7 @@ function make(node, top::Symbol)
                     end)
                 end
             end
-        :($var << $a) | :($var :: $_ << $a) =>
+        :($var << $a) || :($var :: $_ << $a) =>
             let pa = makerec(a)
                 quote
                 $updateparser($pa,
@@ -238,5 +238,5 @@ end
 
 
 macro parser(node)
-    parser_gen(collect_context(node))
+    parser_gen(collect_context(node)) |> esc
 end

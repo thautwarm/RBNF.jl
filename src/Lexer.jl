@@ -1,6 +1,6 @@
 AsocList{K, V} = AbstractArray{Tuple{K, V}}
 
-_genlex(argsym, retsym, lexer_table :: AsocList{Symbol, Function}) =
+_genlex(argsym, retsym, lexer_table) =
     @match lexer_table begin
         [] => quote
                 $throw((SubString($argsym, offset), "Token NotFound"))
@@ -31,7 +31,7 @@ rmlines = @λ begin
     a                   -> a
 end
 
-macro genlex(lexer_table)
+function genlex(lexer_table)
     lexer_table = [(k, v) for (k, v) in eval(lexer_table)]
     ex = quote
         function (tokens)
@@ -48,6 +48,10 @@ macro genlex(lexer_table)
     end
     # println(rmlines(ex))
     ex
+end
+
+macro genlex(lexer_table)
+    genlex(lexer_table) |> esc
 end
 
 struct LexerSpec{K}

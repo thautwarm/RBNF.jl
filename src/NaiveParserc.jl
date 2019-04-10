@@ -1,7 +1,3 @@
-module NPC
-using QASM2Jl.Token
-using QASM2Jl.Lexer
-
 using MLStyle
 
 
@@ -217,4 +213,3 @@ end
     # tokens = TokenView(source)
     # ctx = CtxTokens{Nothing}(tokens)
     # println(p(ctx))
-end
