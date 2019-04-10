@@ -1,23 +1,6 @@
-# RBNF.jl
-
-Several examples are presented via tests.
-
-Last afternoon Old Luo told me to help him with the QASM parser.
-
-However I found something incredibly interesting so I just spent about 13 hours to achieve a handy parser generator in Julia, bringing about some useful ideas like
-Lens implemented in generated functions and, more statically ast rewriting compared to
-[corresponding Python implementation](https://github.com/thautwarm/RBNF).
-
-However, for I have TOEFL exams in very recent days, there're a large number of optimizations and specializations I haven't performed yet.
-
-What's more, the syntax of this DSL could be more convenient. Currently, the indirect left recursions are not permitted, and you have to use `@direct_recur` to explicitly use direct left recursions. I also doubt that people sometimes might not need ast rewriters, but now rewritting is mandatory.
-
-
-[QASM.jl](./test/QASM.jl):
-
-The grammar is based on https://arxiv.org/pdf/1707.03429.pdf and tiny modified.
-
-```julia
+""" Check https://arxiv.org/pdf/1707.03429.pdf for grammar specification
+"""
+module QASM
 using RBNF
 
 struct QSAMLang end
@@ -91,5 +74,25 @@ RBNF.@parser QSAMLang begin
     nninteger := r"\G([1-9]+[0-9]*|0)"
     space     := r"\G\s+"
 end
-```
 
+src1 = """
+OPENQASM 2.0;
+
+gate cu1(lambda) a,b
+{
+    U(0,0,theta/2) a;
+    CX a,b;
+    U(0,0,-theta/2) b;
+    CX a,b;
+    U(0,0,theta/2) b;
+}
+
+qreg q[3];
+qreg a[2];
+creg c[3];
+creg syn[2];
+cu1(pi/2) q[0],q[1]
+"""
+ast, ctx = RBNF.runparser(mainprogram, RBNF.runlexer(QSAMLang, src1))
+@info :qasmparsing ast
+end
