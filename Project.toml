@@ -1,0 +1,4 @@
+name = "QASM2Jl"
+uuid = "dbe2f900-5b47-11e9-1670-079db25a9d10"
+authors = ["thautwarm <twshere@outlook.com>"]
+version = "0.1.0"
