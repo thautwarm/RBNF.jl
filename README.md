@@ -36,7 +36,7 @@ RBNF.@parser QASMLang begin
     # stmts
     ifstmt      := ["if", '(', l=id, "==", r=nninteger, ')', body=qop]
     opaque      := ["opaque", id=id, ['(', [arglist1=idlist].?, ')'].? , arglist2=idlist, ';']
-    barrier     := ["barrier", value=anylist]
+    barrier     := ["barrier", value=mixedlist]
     decl        := [regtype="qreg" | "creg", id=id, '[', int=nninteger, ']', ';']
 
     # gate
@@ -51,11 +51,10 @@ RBNF.@parser QASMLang begin
     measure     := ["measure", arg1=argument, "->", arg2=argument, ';']
 
     uop         := value=(iduop | u | cx)
-    iduop      := [op=id, ['(', [lst1=explist].?, ')'].?, lst2=anylist, ';']
+    iduop      := [op=id, ['(', [lst1=explist].?, ')'].?, lst2=mixedlist, ';']
     u          := ['U', '(', exprs=explist, ')', arg=argument, ';']
     cx         := ["CX", arg1=argument, ',', arg2=argument, ';']
 
-    anylist    := value=(idlist | mixedlist)
     idlist     := value=@direct_recur begin
         init = id
         prefix = (recur, (',', id) => second)
