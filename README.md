@@ -24,7 +24,7 @@ struct QASMLang end
 second((a, b)) = b
 
 RBNF.@parser QASMLang begin
-    # define ignorances
+    # define ignores
     ignore{space}
 
     @grammar
