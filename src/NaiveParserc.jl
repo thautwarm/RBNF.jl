@@ -10,10 +10,10 @@ end
 
 TokenView(src :: Vector{Token}) = TokenView(1, length(src), src)
 
-struct CtxTokens{Res}
+struct CtxTokens{State}
     tokens :: TokenView
     maxfetched :: Int
-    state :: Res
+    state :: State
 end
 
 CtxTokens{A}(tokens :: TokenView) where A = CtxTokens(tokens, 1, crate(A))
@@ -54,11 +54,7 @@ manyparser(p) = function (ctx_tokens)
         push!(res, elt)
     end
 
-    if empty(res)
-        (nothing, inherit_effect(ctx_tokens, remained))
-    else
-        (res, remained)
-    end
+    (res, remained)
 end
 
 hlistparser(ps) = function (ctx_tokens)
@@ -131,12 +127,11 @@ updateparser(p, f) = function (ctx_tokens)
     @match p(ctx_tokens) begin
         (nothing, _) && a =>  a
         (a, remained) =>
-            let a = f(ctx_tokens.ctx, a)
-                (a, update_state(remained, a))
+            let state = f(remained.state, a)
+                (a, update_state(remained, state))
             end
     end
 end
-
 
 tokenparser(f) = function (ctx_tokens)
     let tokens = ctx_tokens.tokens
@@ -145,7 +140,7 @@ tokenparser(f) = function (ctx_tokens)
             if f(token)
                 new_tokens = TokenView(tokens.current + 1, tokens.length, tokens.source)
                 max_fetched = max(new_tokens.current, ctx_tokens.maxfetched)
-                new_ctx = CtxTokens(new_tokens, max_fetched, ctx_tokens.res)
+                new_ctx = CtxTokens(new_tokens, max_fetched, ctx_tokens.state)
                 return (token, new_ctx)
             end
         end
@@ -180,13 +175,28 @@ end
 function crate
 end
 
+
 function crate(::Type{Vector{T}}) where T
     T[]
+end
+
+
+function crate(::Type{Vector{T} where T})
+    []
 end
 
 function crate(::Type{Nothing})
     nothing
 end
+
+function crate(::Type{Union{T, Nothing}}) where T
+    nothing
+end
+
+function crate(::Type{Any}) where T
+    nothing
+end
+
 
 
 # number = mklexer(LexerSpec(r"\G\d+"))

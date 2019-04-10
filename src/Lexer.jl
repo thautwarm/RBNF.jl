@@ -32,14 +32,14 @@ rmlines = @λ begin
 end
 
 function genlex(lexer_table)
-    lexer_table = [(k, v) for (k, v) in eval(lexer_table)]
+    lexer_table = [(k, v) for (k, v) in lexer_table]
     ex = quote
         function (tokens)
-            lineno :: Int64 = 1
-            colno  :: Int32 = 1
-            offset :: Int64  = 1
-            ret = Token[]
-            N :: Int64 = length(tokens)
+            lineno :: $Int64 = 1
+            colno  :: $Int32 = 1
+            offset :: $Int64  = 1
+            ret = $Token[]
+            N :: $Int64 = $length(tokens)
             while offset <= N
                 $(_genlex(:tokens, :ret, lexer_table))
             end
@@ -59,27 +59,24 @@ struct LexerSpec{K}
 end
 
 function mklexer(a :: LexerSpec{Char})
-    node = quote (chars, i) -> chars[i] === $(a.a) ? String([$(a.a)]) : nothing end
-    (@__MODULE__).eval(node)
+    quote (chars, i) -> chars[i] === $(a.a) ? String([$(a.a)]) : nothing end
 end
 
 function mklexer(a :: LexerSpec{String})
-    let str = a.a, n = length(str),
-        node = quote (chars, i) ->
+    let str = a.a, n = length(str)
+        quote (chars, i) ->
             startswith(SubString(chars, i), $str) ? $str : nothing
         end
-        (@__MODULE__).eval(node)
     end
 end
 
 function mklexer(a :: LexerSpec{Regex})
-    let regex = a.a,
-        node = quote
+    let regex = a.a
+        quote
             function (chars, i)
                 v = match($regex, SubString(chars, i))
                 v === nothing ? nothing : v.match
             end
         end
-        (@__MODULE__).eval(node)
     end
 end

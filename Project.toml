@@ -1,5 +1,5 @@
-name = "QASM2Jl"
-uuid = "dbe2f900-5b47-11e9-1670-079db25a9d10"
+name = "RBNF"
+uuid = "83ef0002-5b9e-11e9-219b-65bac3c6d69c"
 authors = ["thautwarm <twshere@outlook.com>"]
 version = "0.1.0"
 

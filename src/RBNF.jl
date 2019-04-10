@@ -1,4 +1,4 @@
-module QASMJl
+module RBNF
 using MLStyle
 using DataStructures
 
@@ -7,7 +7,4 @@ include("Lexer.jl")
 include("Lens.jl")
 include("NaiveParserc.jl")
 include("ParserGen.jl")
-
-
-# include("QASMAST.jl") |> println
-end
+end # module
