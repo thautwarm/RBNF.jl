@@ -34,8 +34,11 @@ rmlines = @λ begin
     a                   -> a
 end
 
+struct LexerSpec{K}
+    a :: K
+end
+
 function genlex(lexer_table, reserved_words)
-    lexer_table = [(k, v) for (k, v) in lexer_table]
     ex = quote
         function (tokens)
             lineno :: $Int64 = 1
@@ -57,9 +60,7 @@ macro genlex(lexer_table)
     genlex(lexer_table) |> esc
 end
 
-struct LexerSpec{K}
-    a :: K
-end
+
 
 function mklexer(a :: LexerSpec{Char})
     quote (chars, i) -> chars[i] === $(a.a) ? String([$(a.a)]) : nothing end

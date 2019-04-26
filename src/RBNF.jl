@@ -10,6 +10,6 @@ include("ParserGen.jl")
 include("PFormat.jl")
 
 PFormat.pprint_impl(io, tk::Token{T}, indent, newline) where T = begin
-    print(io, "Token{$T}(str=$(tk.lineno), lineno=$(tk.lineno), colno=$(tk.lineno))")
+    print(io, "Token{$T}(str=$(tk.str), lineno=$(tk.lineno), colno=$(tk.lineno))")
 end
 end # module

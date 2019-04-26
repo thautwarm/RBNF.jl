@@ -13,7 +13,7 @@ RBNF.@parser QASMLang begin
     @grammar
     # define grammars
     mainprogram := ["OPENQASM", ver=real, ';', prog=program]
-    program     = Many(statement)
+    program     = statement{*}
     statement   = (decl | gate | opaque | qop | ifstmt | barrier)
     # stmts
     ifstmt      := ["if", '(', l=id, "==", r=nninteger, ')', body=qop]
@@ -25,7 +25,7 @@ RBNF.@parser QASMLang begin
     gate        := [decl=gatedecl, [goplist=goplist].?, '}']
     gatedecl    := ["gate", id=id, ['(', [arglist1=idlist].?, ')'].?, arglist2=idlist, '{']
 
-    goplist     = Many(uop |barrier_ids)
+    goplist     = (uop |barrier_ids){*}
     barrier_ids := ["barrier", ids=idlist, ';']
     # qop
     qop         = (uop | measure | reset)

@@ -17,14 +17,25 @@ end
 struct AliasContext
 end
 
-to_struct_name(name) = Symbol("Struct__", name)
+@active QuoteNodeD(c) begin
+    if c isa QuoteNode
+        c.value
+    end
+end
+
+to_struct_name(name) = Symbol("Struct_", name)
 
 const r_str_v = Symbol("@r_str")
 function collect_lexer!(lexers, name, node)
     @match node begin
         Expr(:macrocall, &r_str_v, ::LineNumberNode, s) => push!(lexers, (name, LexerSpec(Regex(s))))
         c::Union{Char, String, Regex} => push!(lexers, (name, LexerSpec(c)))
+        :($_.$(::Symbol)) => nothing
         Expr(head, tail...) => foreach(x -> collect_lexer!(lexers, name, x), tail)
+        QuoteNodeD(c::Symbol) =>
+             begin
+                push!(lexers, (:reserved, LexerSpec(String(c))))
+             end
         _ => nothing
     end
     nothing
@@ -45,6 +56,7 @@ end
     end
 end
 
+
 function collect_context(node)
     stmts = @match node begin
         quote
@@ -56,7 +68,7 @@ function collect_context(node)
     tokens   :: Vector{Tuple{Symbol, AST}}            = []
     grammars :: Vector{Tuple{Symbol, Any, AST, Bool}} = []
     collector = nothing
-    unnamed_lexers = OrderedSet{Tuple{Symbol, LexerSpec{T}} where T}()
+    unnamed_lexers = Vector{Tuple{Symbol, LexerSpec{T}} where T}()
 
     for stmt in stmts
         @match stmt begin
@@ -93,7 +105,7 @@ function collect_context(node)
                 end
             :(reserved = [$(reserved_words_to_append...)]) =>
                 begin
-                    union!(reserved_words, map(string, reserved_words))
+                    union!(reserved_words, map(string, reserved_words_to_append))
                 end
             ::String => nothing # document?
             a => collector(a)
@@ -103,14 +115,44 @@ function collect_context(node)
     for (k, v) in tokens
         collect_lexer!(lexers, k, v)
     end
-    union!(lexers, unnamed_lexers)
-    lexer_table :: Vector{Tuple{Symbol, Expr}} = [(k, mklexer(v)) for (k, v) in lexers]
+    union!(reserved_words, Set([v.a for (k, v) in unnamed_lexers if k === :reserved]))
+    union!(lexers, Set(unnamed_lexers))
+    lexer_table :: Vector{Tuple{Symbol, Expr}} = [(k, mklexer(v)) for (k, v) in  lexers]
     PContext(reserved_words, lexer_table, ignores, tokens, grammars)
+end
+
+
+get_lexer_type(::LexerSpec{T}) where T = T
+function sort_lexer_spec(lexer_table)
+    new_lexer_table = []
+    segs = []
+    seg = []
+    t = Nothing
+    for (k, v) in lexer_table
+        now = get_lexer_type(v)
+        if t == now
+            push!(seg, (k, v))
+        else
+            push!(segs, (t, seg))
+            seg = [(k, v)]
+            t = now
+        end
+    end
+    if !isempty(seg)
+        push!(segs, (t, seg))
+    end
+    for (t, seg) in segs
+        if t === String
+            sort!(seg, by=x->x[2].a, rev=true)
+        end
+        append!(new_lexer_table, seg)
+    end
+    new_lexer_table
 end
 
 function parser_gen(lang, pc :: PContext)
     decl_seqs = []
-    for (each, _) in  pc.tokens
+    for each in  [:reserved, map(x -> x[1], pc.tokens)...]
         push!(decl_seqs, quote
             $each = let
                 f(::$Token{$(QuoteNode(each))}) = true
@@ -153,8 +195,7 @@ function parser_gen(lang, pc :: PContext)
             )
     )
     for (each, struct_name, _, is_grammar_node) in pc.grammars
-        # in fact, !is_grammar_node is redundant, but for readability, emm..
-        if !is_grammar_node && struct_name === nothing
+        if struct_name === nothing
             struct_name = to_struct_name(each)
         end
         push!(decl_seqs, quote
@@ -226,11 +267,17 @@ function make(node, top)
             let r = Regex(s)
                 :($tokenparser(x -> $match($r, x.str) !== nothing))
             end
+
+        (QuoteNodeD(sym::Symbol)) && Do(s = String(sym)) ||
+        (c ::Char) && Do(s = String([c]))    ||
         s::String => :($tokenparser(x -> x.str == $s))
-        c::Char =>
-            let s = String([c])
-                :($tokenparser(x -> x.str == $s))
-            end
+
+        :(!$(s :: Char)) && Do(s=String([s]))     ||
+        :(!$(QuoteNodeD(sym::Symbol))) && Do(s=String(sym)) ||
+        :(!$(s::String)) => :($tokenparser(x -> x.str != $s))
+
+        :_      => :($tokenparser(x -> true))
+
         :[$(elts...)] =>
             let elt_ps = map(makerec, elts)
                 :($hlistparser([$(elt_ps...)]))
@@ -248,10 +295,11 @@ function make(node, top)
                 :($orparser($prev, $each))
             end
 
-        :(Many($a)) =>
+        :(Many($a))|| :($a{*}) =>
             let pa = makerec(a)
                 :($manyparser($pa))
             end
+
         :($a => $f) =>
             let pa = makerec(a)
                 :($trans($f, $pa))

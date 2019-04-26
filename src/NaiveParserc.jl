@@ -51,7 +51,7 @@ manyparser(p) = function (ctx_tokens)
         push!(res, elt)
     end
 
-    (isempty(res) ? nothing : res, remained)
+    (res, remained)
 end
 
 hlistparser(ps) = function (ctx_tokens)
