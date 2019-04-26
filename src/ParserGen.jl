@@ -7,11 +7,17 @@ function runparser
 end
 
 struct PContext
+    reserved_words :: Set{String}
     lexer_table :: Vector{Tuple{Symbol, Expr}}
     ignores :: Vector{AST}
     tokens :: Vector{Tuple{Symbol, AST}}
-    grammars :: Vector{Tuple{Symbol, AST}}
+    grammars :: Vector{Tuple{Symbol, Any, AST, Bool}}
 end
+
+struct AliasContext
+end
+
+to_struct_name(name) = Symbol("Struct__", name)
 
 const r_str_v = Symbol("@r_str")
 function collect_lexer!(lexers, name, node)
@@ -45,11 +51,13 @@ function collect_context(node)
             $(stmts...)
         end => stmts
     end
-    ignores = []
-    tokens = []
-    grammars = []
+    reserved_words :: Set{String}                     = Set(String[])
+    ignores  :: Vector{AST}                           = []
+    tokens   :: Vector{Tuple{Symbol, AST}}            = []
+    grammars :: Vector{Tuple{Symbol, Any, AST, Bool}} = []
     collector = nothing
     unnamed_lexers = OrderedSet{Tuple{Symbol, LexerSpec{T}} where T}()
+
     for stmt in stmts
         @match stmt begin
             ::LineNumberNode => ()
@@ -62,18 +70,30 @@ function collect_context(node)
                 end
             IsMacro{:grammar} =>
                 begin
-                    collector = @λ begin
-                        :($name := $node) ->
+                    collector = x -> @match x begin
+                        :($name = $node) =>
                             begin
                                 collect_lexer!(unnamed_lexers, :unnamed, node)
-                                push!(grammars, (name, node))
+                                named = (name=name, typ=nothing, def=node, is_grammar_node=true)
+                                push!(grammars,  Tuple(named))
                             end
-                        a -> throw(a)
+                        :($name :: $t := $node) ||
+                        :($name := $node) && Do(t=nothing) =>
+                            begin
+                                collect_lexer!(unnamed_lexers, :unnamed, node)
+                                named = (name=name, typ=t, def=node, is_grammar_node=false)
+                                push!(grammars, Tuple(named))
+                            end
+                        a => throw(a)
                     end
                 end
             :(ignore{$(ignores_...)}) =>
                 begin
                     append!(ignores, ignores_)
+                end
+            :(reserved = [$(reserved_words_to_append...)]) =>
+                begin
+                    union!(reserved_words, map(string, reserved_words))
                 end
             ::String => nothing # document?
             a => collector(a)
@@ -85,7 +105,7 @@ function collect_context(node)
     end
     union!(lexers, unnamed_lexers)
     lexer_table :: Vector{Tuple{Symbol, Expr}} = [(k, mklexer(v)) for (k, v) in lexers]
-    PContext(lexer_table, ignores, tokens, grammars)
+    PContext(reserved_words, lexer_table, ignores, tokens, grammars)
 end
 
 function parser_gen(lang, pc :: PContext)
@@ -100,7 +120,7 @@ function parser_gen(lang, pc :: PContext)
         end)
     end
 
-    for (each, _) in pc.grammars
+    for (each, _, _, _) in pc.grammars
         push!(decl_seqs, quote
             function $each
             end
@@ -108,8 +128,8 @@ function parser_gen(lang, pc :: PContext)
     end
     struct_defs = []
     parser_defs = []
-    for (k, v) in pc.grammars
-        (struct_def, parser_def) = grammar_gen(k, v)
+    for (k, t, v, is_grammar_node) in pc.grammars
+        (struct_def, parser_def) = grammar_gen(k, t, v, is_grammar_node)
         push!(struct_defs, struct_def)
         push!(parser_defs, parser_def)
     end
@@ -119,8 +139,9 @@ function parser_gen(lang, pc :: PContext)
 
     # make lexer
     lexer_table = pc.lexer_table
-    runlexer_no_ignore_sym = gensym("lexer")
-    push!(decl_seqs, :($runlexer_no_ignore_sym = $(genlex(lexer_table))))
+    reserved_words = pc.reserved_words
+    runlexer_no_ignored_sym = gensym("lexer")
+    push!(decl_seqs, :($runlexer_no_ignored_sym = $(genlex(lexer_table, reserved_words))))
     names = :($Set([$(map(QuoteNode, pc.ignores)...)]))
     push!(decl_seqs, :(
         $RBNF.runlexer(::$Type{$lang}, str) =
@@ -128,11 +149,14 @@ function parser_gen(lang, pc :: PContext)
                 function (:: $Token{k}, ) where k
                     !(k in $names)
                 end,
-                $runlexer_no_ignore_sym(str))
+                $runlexer_no_ignored_sym(str))
             )
     )
-    for (each, _) in pc.grammars
-        struct_name = to_struct_name(each)
+    for (each, struct_name, _, is_grammar_node) in pc.grammars
+        # in fact, !is_grammar_node is redundant, but for readability, emm..
+        if !is_grammar_node && struct_name === nothing
+            struct_name = to_struct_name(each)
+        end
         push!(decl_seqs, quote
             $RBNF.runparser(::$typeof($each), tokens :: $Vector{$Token}) =
                 let ctx = $CtxTokens{$struct_name}($TokenView(tokens))
@@ -165,40 +189,36 @@ function analyse_closure!(vars, node)
     end
 end
 
-to_struct_name(name) = Symbol("__struct__", name)
-
-function grammar_gen(name::Symbol, def_body)
+function grammar_gen(name::Symbol, struct_name, def_body, is_grammar_node)
     vars = OrderedDict{Symbol, Any}()
     analyse_closure!(vars, def_body)
-    struct_name = to_struct_name(name)
-    parser_skeleton_name = gensym()
-    struct_def = quote
-        struct $struct_name
-            $([Expr(:(::), k, v) for (k, v) in vars]...)
+    if struct_name === nothing
+        struct_name = to_struct_name(name)
+        struct_def = quote
+            struct $struct_name
+                $([Expr(:(::), k, v) for (k, v) in vars]...)
+            end
+            $RBNF.crate(::Type{$struct_name}) = $struct_name($([:($crate($v)) for v in values(vars)]...))
         end
-        $RBNF.crate(::Type{$struct_name}) = $struct_name($([:($crate($v)) for v in values(vars)]...))
     end
-
+    parser_skeleton_name = gensym()
+    return_expr = is_grammar_node ? :result : :(returned_ctx.state)
     parser_def = quote
-        $parser_skeleton_name = $(make(def_body, name))
+        $parser_skeleton_name = $(make(def_body, struct_name))
         function $name(ctx_in)
             cur_state = $crate($struct_name)
             old_state = ctx_in.state
-            ctx1 = $update_state(ctx_in, cur_state)
-            (res, ctx2) = $parser_skeleton_name(ctx1)
-            ctx_out = $update_state(ctx2, old_state)
-            if res === nothing
-                (nothing, ctx_out)
-            else
-                (ctx2.state, ctx_out)
-            end
+            inside_ctx = $update_state(ctx_in, cur_state)
+            (result, returned_ctx) = $parser_skeleton_name(inside_ctx)
+            resume_ctx = $update_state(returned_ctx, old_state)
+            (result === nothing ? nothing : $return_expr,  resume_ctx)
         end
     end
     (struct_def, parser_def)
 end
 
 
-function make(node, top::Symbol)
+function make(node, top)
     makerec(node) = make(node, top)
     @match node begin
         MacroSplit{:r_str}(s) =>
@@ -245,7 +265,7 @@ function make(node, top::Symbol)
             let pa = makerec(a)
                 quote
                 $updateparser($pa,
-                    let top_struct = $(to_struct_name(top)), fields = $fieldnames(top_struct)
+                    let top_struct = $top, fields = $fieldnames(top_struct)
                         (old_ctx, new_var) -> $runlens(old_ctx, new_var, $Lens{top_struct, fields, $(QuoteNode(var))})
                     end)
                 end
@@ -254,7 +274,7 @@ function make(node, top::Symbol)
             let pa = makerec(a)
                 quote
                 $updateparser($pa,
-                    let top_struct = $(to_struct_name(top)), fields = $fieldnames(top_struct)
+                    let top_struct = $top, fields = $fieldnames(top_struct)
                         (old_ctx, new_var) -> $runlens(old_ctx, cons(new, old_ctx.$var), $Lens{top_struct, fields, $(QuoteNode(var))})
                     end)
                 end

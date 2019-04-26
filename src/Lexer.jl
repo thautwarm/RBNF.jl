@@ -1,29 +1,32 @@
 AsocList{K, V} = AbstractArray{Tuple{K, V}}
 
-_genlex(argsym, retsym, lexer_table) =
-    @match lexer_table begin
-        [] => quote
-                $throw((SubString($argsym, offset), "Token NotFound"))
-              end
-        [(k, v), tl...] =>
-            quote
-                s = $v($argsym, offset)
-                if s !== nothing
-                    line_inc = count(x -> x === '\n', s)
-                    n = length(s)
-                    push!($retsym, $Token{$(QuoteNode(k))}(lineno, colno, offset, s, n))
-                    if  line_inc === 0
-                        colno += n
-                    else
-                        lineno += line_inc
-                        colno =  n - findlast(x -> x === '\n', s) + 1
-                    end
-                    offset += n
-                    continue
-                end
-                $(_genlex(argsym, retsym, tl))
+function _genlex(argsym, retsym, lexer_table, reserved_words)
+    gen_many_lexers = map(lexer_table) do (k, v)
+        lnode = LineNumberNode(1, "lexing rule: $k")
+
+        token_type = reserved_words === nothing ? QuoteNode(k) :
+                        :(s in $reserved_words ? :reserved : $(QuoteNode(k)))
+        quote
+            $lnode
+            s = $v($argsym, offset)
+            if s !== nothing
+            line_inc = count(x -> x === '\n', s)
+            n = length(s)
+            push!($retsym, $Token{$token_type}(lineno, colno, offset, s, n))
+            if  line_inc === 0
+                colno += n
+            else
+                lineno += line_inc
+                colno =  n - findlast(x -> x === '\n', s) + 1
             end
+            offset += n
+            continue
+            end
+        end
     end
+    final = :($throw((SubString($argsym, offset), "Token NotFound")))
+    Expr(:block, gen_many_lexers..., final)
+end
 
 rmlines = @λ begin
     e :: Expr           -> Expr(e.head, filter(x -> x !== nothing, map(rmlines, e.args))...)
@@ -31,7 +34,7 @@ rmlines = @λ begin
     a                   -> a
 end
 
-function genlex(lexer_table)
+function genlex(lexer_table, reserved_words)
     lexer_table = [(k, v) for (k, v) in lexer_table]
     ex = quote
         function (tokens)
@@ -41,7 +44,7 @@ function genlex(lexer_table)
             ret = $Token[]
             N :: $Int64 = $length(tokens)
             while offset <= N
-                $(_genlex(:tokens, :ret, lexer_table))
+                $(_genlex(:tokens, :ret, lexer_table, reserved_words))
             end
             ret
         end
