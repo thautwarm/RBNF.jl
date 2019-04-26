@@ -70,7 +70,7 @@ end
 function pprint(io, data, indent, newline)
     if newline
         print(io, "\n")
-        print(io, repeat(" ", indent), true)
+        print(io, repeat(" ", indent))
     end
     pprint_impl(io, data, indent, newline)
 end

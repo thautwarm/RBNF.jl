@@ -33,11 +33,11 @@ RBNF.@parser QASMLang begin
     measure     := ["measure", arg1=argument, "->", arg2=argument, ';']
 
     uop         = (iduop | u | cx)
-    iduop       := [op=id, ['(', [lst1=explist].?, ')'].?, lst2=mixedlist, ';']
-    u           := ['U', '(', exprs=explist, ')', arg=argument, ';']
-    cx          := ["CX", arg1=argument, ',', arg2=argument, ';']
+    iduop      := [op=id, ['(', [lst1=explist].?, ')'].?, lst2=mixedlist, ';']
+    u          := ['U', '(', exprs=explist, ')', arg=argument, ';']
+    cx         := ["CX", arg1=argument, ',', arg2=argument, ';']
 
-    idlist      = @direct_recur begin
+    idlist     = @direct_recur begin
         init = id
         prefix = (recur, (',', id) => second)
     end
@@ -57,7 +57,7 @@ RBNF.@parser QASMLang begin
 
     atom       = (real | nninteger | "pi" | id | fnexp) | (['(', exp, ')'] => x -> x[2]) | neg
     fnexp      := [fn=fn, '(', arg=exp, ')']
-    neg        := value=exp
+    neg        := ['-', value=exp]
     exp        = @direct_recur begin
         init = atom
         prefix = (recur, binop, atom)

@@ -181,6 +181,7 @@ function analyse_closure!(vars, node)
                     Any
                 end
             end
+        IsMacro{:direct_recur} => nothing
         Expr(head, args...) =>
             for each in args
                 analyse_closure!(vars, each)
