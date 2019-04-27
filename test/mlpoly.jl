@@ -1,4 +1,3 @@
-module MLPoly
 using RBNF
 using MLStyle
 
@@ -27,56 +26,57 @@ RBNF.@parser MLPolyLang begin
     Let       := [hd=:let, rec=:rec.?, binds=(LetBind, ((',', LetBind) => second){*}), :in, body=Exp]
     LetBind   := [bind=id, '=', value=Exp]
     Fun       := [hd=:fn, args=id{*}, "->", Exp]
-    Data      := [hd=:data, name=id, "::", kind=Exp, :where, stmts=Stmt{*}, :end]
+    Data      := [hd=:data, name=id, ":", kind=Exp, :where, stmts=Stmt{*}, :end]
     Import    := [hd=:import, paths=(id, [",", id]{*})]
     Match     := [hd=:match, sc=Exp, :with,
-                    cases=(['|', Exp, "->", Exp] => (_, case, _, body) -> (case, body)){*},
-                 :end.?] # end for nested match
+                        cases=(['|', Exp, "->", Exp] => (_, case, _, body) -> (case, body)){*},
+                    :end.?] # end for nested match
     If        := [hd=:if, cond=Exp, :then,
                         br1=Exp,
                      :else,
                         br2=Exp]
-    Class     := [hd=:class, (constraint=Call, "=>").?, name=id, vars=id{*}, :where,
-                     interfaces=Annotate{*}, :end]
+    Class     := [hd=:class, (constraint=Call, "=>").?, name=id, ":", kind=Exp, :where,
+                     interfaces=Annotate{*},
+                 :end]
     Instance  := [hd=:instance, name=id, vars=Exp{*}, :where, impls=Stmt{*}, :end]
     NestedExpr:= [hd='(', value=Expr, ')']
     Var       := value=id
     Block     := [hd=:begin, stmts=Stmt{*}, :end]
     Atom      := value=(NestedExpr | Num | Str | Boolean | Var | Block)
-    Num       := [[neg="-"].?, (int=nninteger) | (float=real)]
+    Num       := [[neg="-"].?, (int=integer) | (float=float)]
     Boolean   := value=("true" | "false")
-    Call      := [fn=Atom, args=Exp{*}]
-    Comp      := value=(Call | Let | Fun | Match | If | Quote | Insert)
+    Call      := [fn=Atom, args=Atom{*}]
+    Typing    := [[:forall, fresh=(["{", Call, "}"] => x -> x[2]){*}].?, from=Call, ("->", to=Typing).?]
+    Comp      := value=(Typing | Let | Fun | Match | If | Quote | Insert)
     Exp       := value=@direct_recur begin
         init = Comp
         prefix = [recur, Op, Comp]
 
     end
     Op        := ['`', name=_, '`']
-    Annotate  := [name=id, "::", typ=Exp]
+    Annotate  := [:val, name=id, ":", typ=Exp]
     Stmt      = Data | Import | Class | Instance | Annotate | Exp
     Quote     := [hd=:quote, stmts=Exp{*}, :end]
     Insert    := [hd='$', exp=Exp]
     Module    := [hd=:module, name=id, :where, stmts=Stmt{*}, :end.?]
 
     @token
-    id        := r"\G[A-Za-z]{1}[A-Za-z0-9_]*"
-    real      := r"\G([0-9]+\.[0-9]*|[0-9]*\.[0.9]+)([eE][-+]?[0-9]+)?"
-    nninteger := r"\G([1-9]+[0-9]*|0)"
+    id        := r"\G[A-Za-z_]{1}[A-Za-z0-9_]*"
+    float     := r"\G([0-9]+\.[0-9]*|[0-9]*\.[0.9]+)([eE][-+]?[0-9]+)?"
+    integer   := r"\G([1-9]+[0-9]*|0)"
     space     := r"\G\s+"
 end
 
+
 src1 = """
 module Poly where
-let a = 1 in 2
-class Fk a b where
-    a :: Type
+let _ = 1 in 2
+class Bi : Type -> Type where
+    val a : Int
+    val b : Int
 end
-
 """
+
 tokens = RBNF.runlexer(MLPolyLang, src1)
-# @info :t tokens
 ast, ctx = RBNF.runparser(Module, tokens)
 RBNF.PFormat.pprint(ast)
-
-end
