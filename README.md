@@ -32,16 +32,29 @@ escape(a) = @match a begin
     a     => throw(a)
 end
 join_token_as_str =  xs -> join(x.value for x in xs)
+
+# 一个不可变的对象，如MLPolyLang这个DataType, 作为语言标志
 RBNF.@parser MLPolyLang begin
-    # define ignorances
+
+    # 定义要过滤的token名. space在token定义处给出。
     ignore{space}
 
-    # define keywords
-    reserved = [:true, :false]
+    # 定义保留字， 可以是字符串，或者符号
+    reserved = [true, false]
 
+    # 定义文法
+    # := 表示语法节点， parser会生成一个对应的结构体,
+    #                   其各字段如对应文法定义。
+    # = 表示非语法节点， parser输出如对应文法对应。
     @grammar
+    # '?' 和 "?" 表示对应的token应该对应的字面量
+    # r"?" 表示应该对应的正则
     Str       :=  value=['"', Escape{*} => join_token_as_str, '"']
+
+    # => 表示重写规则
     Escape    :=  (('\\', _) => x -> escape(x[2])) | !'"'
+
+    # a.? 表示a可选。 a{*} 表示重复解析a 0到无穷次
     Let       := [hd=:let, rec=:rec.?, binds=(LetBind, ((',', LetBind) => second){*}), :in, body=Exp]
     LetBind   := [bind=id, '=', value=Exp]
     Fun       := [hd=:fn, args=id{*}, "->", Exp]
@@ -50,6 +63,7 @@ RBNF.@parser MLPolyLang begin
     Match     := [hd=:match, sc=Exp, :with,
                         cases=(['|', Exp, "->", Exp] => (_, case, _, body) -> (case, body)){*},
                     :end.?] # end for nested match
+    # 规则写得尽量像这个语言用起来的样子。
     If        := [hd=:if, cond=Exp, :then,
                         br1=Exp,
                      :else,
@@ -67,6 +81,8 @@ RBNF.@parser MLPolyLang begin
     Call      := [fn=Atom, args=Atom{*}]
     Typing    := [[:forall, fresh=(["{", Call, "}"] => x -> x[2]){*}].?, from=Call, ("->", to=Typing).?]
     Comp      := value=(Typing | Let | Fun | Match | If | Quote | Insert)
+
+    # 显式处理直接左递归, recur表示自己。不懂请百科。。
     Exp       := value=@direct_recur begin
         init = Comp
         prefix = [recur, Op, Comp]
@@ -79,6 +95,7 @@ RBNF.@parser MLPolyLang begin
     Insert    := [hd='$', exp=Exp]
     Module    := [hd=:module, name=id, :where, stmts=Stmt{*}, :end.?]
 
+    # 定义token
     @token
     id        := r"\G[A-Za-z_]{1}[A-Za-z0-9_]*"
     float     := r"\G([0-9]+\.[0-9]*|[0-9]*\.[0.9]+)([eE][-+]?[0-9]+)?"

@@ -18,7 +18,7 @@ RBNF.@parser MLPolyLang begin
     ignore{space}
 
     # define keywords
-    reserved = [:true, :false]
+    reserved = [true, false]
 
     @grammar
     Str       :=  value=['"', Escape{*} => join_token_as_str, '"']
