@@ -113,7 +113,7 @@ module Poly where
 let _ = 1 in 2
 class Bi : Type -> Type where
     val a : Int
-    val b : Inr
+    val b : Int
 end
 """
 
