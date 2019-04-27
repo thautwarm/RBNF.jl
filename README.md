@@ -107,7 +107,7 @@ end
 以上文法经过分析， 自动生成高效的parser和lexer(将字符串重整为tokens的东西)。
 
 使用方法如下:
-```
+```julia
 src1 = """
 module Poly where
 let _ = 1 in 2
@@ -124,7 +124,7 @@ RBNF.PFormat.pprint(ast)
 
 然后得到结果
 
-```
+```julia
 Struct_Module(
   hd=Token{reserved}(str=module, lineno=1, colno=1),
   name=Token{id}(str=Poly, lineno=1, colno=1),
