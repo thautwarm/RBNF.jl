@@ -52,5 +52,5 @@ using MLStyle
 
 # res3, _ = RBNF.runparser(manynumbers, RBNF.runlexer(TestLang2, "52 123 123 14312 213"))
 # println(res3)
-# include("QASM.jl")
+include("QASM.jl")
 include("mlpoly.jl")

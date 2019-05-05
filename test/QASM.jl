@@ -2,6 +2,7 @@
 """
 module QASM
 using RBNF
+using PrettyPrint
 
 struct QASMLang end
 second((a, b)) = b
@@ -92,5 +93,5 @@ creg syn[2];
 cu1(pi/2) q[0],q[1];
 """
 ast, ctx = RBNF.runparser(mainprogram, RBNF.runlexer(QASMLang, src1))
-RBNF.PFormat.pprint(ast)
+pprint(ast)
 end

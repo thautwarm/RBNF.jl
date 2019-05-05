@@ -1,5 +1,6 @@
 using RBNF
 using MLStyle
+using PrettyPrint
 
 struct MLPolyLang
 end
@@ -79,4 +80,4 @@ end
 
 tokens = RBNF.runlexer(MLPolyLang, src1)
 ast, ctx = RBNF.runparser(Module, tokens)
-RBNF.PFormat.pprint(ast)
+pprint(ast)

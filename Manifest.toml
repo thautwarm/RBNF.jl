@@ -39,9 +39,16 @@ uuid = "d6f4376e-aef5-505a-96c1-9c027394607a"
 
 [[OrderedCollections]]
 deps = ["Random", "Serialization", "Test"]
-git-tree-sha1 = "85619a3f3e17bb4761fe1b1fd47f0e979f964d5b"
+git-tree-sha1 = "c4c13474d23c60d20a67b217f1d7f22a40edf8f1"
 uuid = "bac558e1-5e72-5ebc-8fee-abe8a469f55d"
-version = "1.0.2"
+version = "1.1.0"
+
+[[PrettyPrint]]
+git-tree-sha1 = "0167bcd74f698b2e3e50886696eaf5c778223d56"
+repo-rev = "master"
+repo-url = "https://github.com/thautwarm/PrettyPrint.jl"
+uuid = "8162dcfd-2161-5ef2-ae6c-7681170c5f98"
+version = "0.1.0"
 
 [[Random]]
 deps = ["Serialization"]

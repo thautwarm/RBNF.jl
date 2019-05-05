@@ -119,7 +119,7 @@ end
 
 tokens = RBNF.runlexer(MLPolyLang, src1)
 ast, ctx = RBNF.runparser(Module, tokens)
-RBNF.PFormat.pprint(ast)
+pprint(ast)
 ```
 
 然后得到结果
