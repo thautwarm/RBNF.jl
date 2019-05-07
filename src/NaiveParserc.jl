@@ -120,6 +120,9 @@ optparser(p) = function (ctx_tokens)
     end
 end
 
+"""
+State.put
+"""
 updateparser(p, f) = function (ctx_tokens)
     @match p(ctx_tokens) begin
         (nothing, _) && a =>  a
@@ -127,6 +130,16 @@ updateparser(p, f) = function (ctx_tokens)
             let state = f(remained.state, a)
                 (a, update_state(remained, state))
             end
+    end
+end
+
+"""
+State.get
+"""
+getparser(p, f) = function (ctx_tokens)
+    @match p(ctx_tokens) begin
+        (nothing, _) && a =>  a
+        (_, remained) => (f(remained.state), remained)
     end
 end
 
@@ -190,6 +203,10 @@ function crate(::Type{Union{T, Nothing}}) where T
     nothing
 end
 
+function crate(::Type{Bool}) where T
+    false
+end
+
 function crate(::Type{T}) where T <: Number
     zero(T)
 end
@@ -202,6 +219,13 @@ function crate(::Type{Any}) where T
     nothing
 end
 
+function crate(::Type{LinkedList})
+    nil(Any)
+end
+
+function crate(::Type{LinkedList{T}}) where T
+    nil(T)
+end
 
 
 # number = mklexer(LexerSpec(r"\G\d+"))

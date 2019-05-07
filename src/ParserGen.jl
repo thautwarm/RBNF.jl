@@ -23,14 +23,14 @@ end
     end
 end
 
-to_struct_name(name) = Symbol("Struct_", name)
+typename(name, lang) = Symbol("Struct_", name)
 
 const r_str_v = Symbol("@r_str")
 function collect_lexer!(lexers, name, node)
     @match node begin
         Expr(:macrocall, &r_str_v, ::LineNumberNode, s) => push!(lexers, (name, LexerSpec(Regex(s))))
         c::Union{Char, String, Regex} => push!(lexers, (name, LexerSpec(c)))
-        :($_.$(::Symbol)) => nothing
+        :($subject.$(::Symbol)) => collect_lexer!(lexers, name, subject)
         Expr(head, tail...) => foreach(x -> collect_lexer!(lexers, name, x), tail)
         QuoteNodeD(c::Symbol) =>
              begin
@@ -55,7 +55,6 @@ end
         _ => nothing
     end
 end
-
 
 function collect_context(node)
     stmts = @match node begin
@@ -116,7 +115,8 @@ function collect_context(node)
         collect_lexer!(lexers, k, v)
     end
     union!(reserved_words, Set([v.a for (k, v) in unnamed_lexers if k === :reserved]))
-    union!(lexers, Set(unnamed_lexers))
+    union!(lexers, unnamed_lexers)
+    # pprint(lexers.dict.keys)
     lexer_table :: Vector{Tuple{Symbol, Expr}} = [(k, mklexer(v)) for (k, v) in  lexers]
     PContext(reserved_words, lexer_table, ignores, tokens, grammars)
 end
@@ -150,7 +150,7 @@ function sort_lexer_spec(lexer_table)
     new_lexer_table
 end
 
-function parser_gen(lang, pc :: PContext)
+function parser_gen(pc :: PContext, lang, mod::Module)
     decl_seqs = []
     for each in  [:reserved, map(x -> x[1], pc.tokens)...]
         push!(decl_seqs, quote
@@ -171,7 +171,7 @@ function parser_gen(lang, pc :: PContext)
     struct_defs = []
     parser_defs = []
     for (k, t, v, is_grammar_node) in pc.grammars
-        (struct_def, parser_def) = grammar_gen(k, t, v, is_grammar_node)
+        (struct_def, parser_def) = grammar_gen(k, t, v, is_grammar_node, mod, lang)
         push!(struct_defs, struct_def)
         push!(parser_defs, parser_def)
     end
@@ -196,7 +196,7 @@ function parser_gen(lang, pc :: PContext)
     )
     for (each, struct_name, _, is_grammar_node) in pc.grammars
         if struct_name === nothing
-            struct_name = to_struct_name(each)
+            struct_name = typename(each, lang)
         end
         push!(decl_seqs, quote
             $RBNF.runparser(::$typeof($each), tokens :: $Vector{$Token}) =
@@ -231,11 +231,27 @@ function analyse_closure!(vars, node)
     end
 end
 
-function grammar_gen(name::Symbol, struct_name, def_body, is_grammar_node)
+"""
+`fill_subject(node, subject_name)`,
+converts `_.field` to `subject_name.field`.
+"""
+function fill_subject(node, subject_name)
+    let rec(node) =
+        @match node begin
+            :(_.$field) => :($subject_name.$field)
+            Expr(head, args...) => Expr(head, map(rec, args)...)
+            a => a
+        end
+
+        rec(node)
+    end
+end
+
+function grammar_gen(name::Symbol, struct_name, def_body, is_grammar_node, mod, lang)
     vars = OrderedDict{Symbol, Any}()
     analyse_closure!(vars, def_body)
     if struct_name === nothing
-        struct_name = to_struct_name(name)
+        struct_name = typename(name, lang)
         struct_def = quote
             struct $struct_name
                 $([Expr(:(::), k, v) for (k, v) in vars]...)
@@ -246,7 +262,7 @@ function grammar_gen(name::Symbol, struct_name, def_body, is_grammar_node)
     parser_skeleton_name = gensym()
     return_expr = is_grammar_node ? :result : :(returned_ctx.state)
     parser_def = quote
-        $parser_skeleton_name = $(make(def_body, struct_name))
+        $parser_skeleton_name = $(make(def_body, struct_name, mod))
         function $name(ctx_in)
             cur_state = $crate($struct_name)
             old_state = ctx_in.state
@@ -260,8 +276,8 @@ function grammar_gen(name::Symbol, struct_name, def_body, is_grammar_node)
 end
 
 
-function make(node, top)
-    makerec(node) = make(node, top)
+function make(node, top, mod::Module)
+    makerec(node) = make(node, top, mod)
     @match node begin
         MacroSplit{:r_str}(s) =>
             let r = Regex(s)
@@ -295,12 +311,21 @@ function make(node, top)
                 :($orparser($prev, $each))
             end
 
-        :(Many($a))|| :($a{*}) =>
+        :($a{*}) =>
             let pa = makerec(a)
                 :($manyparser($pa))
             end
 
-        :($a => $f) =>
+        :($a => $exp) =>
+            let pa = makerec(a), argname = Symbol(".", top), fn_name = Symbol("fn", ".", top)
+                quote
+                    let $fn_name($argname, ) = $(fill_subject(exp, argname))
+                        $getparser($pa, $fn_name)
+                    end
+                end
+            end
+
+        :($a % $f) =>
             let pa = makerec(a)
                 :($trans($f, $pa))
             end
@@ -324,7 +349,7 @@ function make(node, top)
                 quote
                 $updateparser($pa,
                     let top_struct = $top, fields = $fieldnames(top_struct)
-                        (old_ctx, new_var) -> $runlens(old_ctx, cons(new, old_ctx.$var), $Lens{top_struct, fields, $(QuoteNode(var))})
+                        (old_ctx, new_var) -> $runlens(old_ctx, $cons(new_var, old_ctx.$var), $Lens{top_struct, fields, $(QuoteNode(var))})
                     end)
                 end
             end
@@ -353,6 +378,7 @@ function make(node, top)
                     :($direct_lr($initp, $trailerp, $reducer))
                 end
             end
+        :($f($(args...))) => makerec(getfield(mod, f)(args...))
         z => throw(z)
     end
 end
@@ -365,6 +391,6 @@ end
 
 
 macro parser(lang, node)
-    ex = parser_gen(lang, collect_context(node))
+    ex = parser_gen(collect_context(node), __module__.eval(lang), __module__)
     esc(ex)
 end

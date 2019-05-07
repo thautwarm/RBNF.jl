@@ -6,4 +6,3 @@ end
         $T($([field !== Field ? :(main.$field) : :new_field for field in Fields]...))
     end
 end
-

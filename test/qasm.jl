@@ -6,6 +6,7 @@ using PrettyPrint
 
 struct QASMLang end
 second((a, b)) = b
+second(vec::V) where V <: AbstractArray = vec[2]
 
 RBNF.@parser QASMLang begin
     # define ignorances
@@ -40,23 +41,23 @@ RBNF.@parser QASMLang begin
 
     idlist     = @direct_recur begin
         init = id
-        prefix = (recur, (',', id) => second)
+        prefix = (recur, (',', id) % second)
     end
 
     mixeditem   := [id=id, ['[', arg=nninteger, ']'].?]
     mixedlist   = @direct_recur begin
         init = mixeditem
-        prefix = (recur, (',', mixeditem) => second)
+        prefix = (recur, (',', mixeditem) % second)
     end
 
     argument   := [id=id, ['[', (arg=nninteger), ']'].?]
 
     explist    = @direct_recur begin
         init = exp
-        prefix = (recur,  (',', exp) => second)
+        prefix = (recur,  (',', exp) % second)
     end
 
-    atom       = (real | nninteger | "pi" | id | fnexp) | (['(', exp, ')'] => x -> x[2]) | neg
+    atom       = (real | nninteger | "pi" | id | fnexp) | (['(', exp, ')'] % second) | neg
     fnexp      := [fn=fn, '(', arg=exp, ')']
     neg        := ['-', value=exp]
     exp        = @direct_recur begin
