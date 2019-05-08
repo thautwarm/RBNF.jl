@@ -108,8 +108,9 @@ function mklexer(a :: LexerSpec{Quoted})
                 while off <= n
                     subs = SubString(chars, off)
                     if $startswith(subs, $right)
+                        off = off + $(length(right))
                         # so tricky here for the impl of Julia string.
-                        return chars[i:off]
+                        return chars[i:prevind(chars, off)]
                     end
                     if $startswith(subs, $escape)
                         off = off + $(length(escape))
