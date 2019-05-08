@@ -84,3 +84,41 @@ function mklexer(a :: LexerSpec{Regex})
         end
     end
 end
+
+struct Quoted
+    left :: String
+    right :: String
+    escape :: String
+end
+
+function mklexer(a :: LexerSpec{Quoted})
+    let left = a.a.left,
+        right = a.a.right,
+        escape = a.a.escape
+        quote
+            function (chars, i)
+                off = i
+                n = $length(chars)
+                subs = SubString(chars, off)
+                if $startswith(subs, $left)
+                    off = off + $(length(left))
+                else
+                    return nothing
+                end
+                while off <= n
+                    subs = SubString(chars, off)
+                    if $startswith(subs, $right)
+                        # so tricky here for the impl of Julia string.
+                        return chars[i:off]
+                    end
+                    if $startswith(subs, $escape)
+                        off = off + $(length(escape))
+                    else
+                        off = nextind(chars, off)
+                    end
+                end
+                nothing
+            end
+        end
+    end
+end

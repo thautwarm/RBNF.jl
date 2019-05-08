@@ -45,8 +45,7 @@ RBNF.@parser ReML begin
 
     @grammar
     # necessary
-    Str       :=  value=['"', Escape{*} % join_token_as_str, '"']
-    Escape    =  (('\\', _) % (escape ∘ second)) | !'"'
+    Str       :=  value=str
 
     Bind      := [name=id, '=', value=Exp]
     Let       := [hd=:let, rec=:rec.? % maybe_to_bool,
@@ -92,6 +91,7 @@ RBNF.@parser ReML begin
 
     @token
     id        := r"\G[A-Za-z_]{1}[A-Za-z0-9_]*"
+    str       := @quote ("\"" ,"\\\"", "\"")
     float     := r"\G([0-9]+\.[0-9]*|[0-9]*\.[0.9]+)([eE][-+]?[0-9]+)?"
     integer   := r"\G([1-9]+[0-9]*|0)"
     space     := r"\G\s+"
@@ -100,13 +100,14 @@ end
 
 src1 = """
 module Poly where
+def a = "12\\"3"
 
 class Monad m that Functor m where
     val bind : forall a b . m a -> (a -> b) -> m b
 end
 
 val a : Int
-def a = 1
+def a = "12345"
 
 val f : Int -> Int
 def f = fn a -> a `add` 1

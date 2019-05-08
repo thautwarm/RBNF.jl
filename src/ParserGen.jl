@@ -28,6 +28,7 @@ typename(name, lang) = Symbol("Struct_", name)
 const r_str_v = Symbol("@r_str")
 function collect_lexer!(lexers, name, node)
     @match node begin
+        :(@quote $_ ($(left::String), $(escape::String), $(right::String))) => push!(lexers, (name, LexerSpec(Quoted(left, right, escape))))
         Expr(:macrocall, &r_str_v, ::LineNumberNode, s) => push!(lexers, (name, LexerSpec(Regex(s))))
         c::Union{Char, String, Regex} => push!(lexers, (name, LexerSpec(c)))
         :($subject.$(::Symbol)) => collect_lexer!(lexers, name, subject)
