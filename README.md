@@ -49,7 +49,7 @@ what I've been achieved and, what I'm now researching.
 
 # Basic Usage
 
-P.S: Note that each rule can be mutually referenced by each other.
+P.S: rules can be mutually referenced by each other.
 
 ## Structures of Defining A Language
 
