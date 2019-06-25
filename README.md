@@ -41,7 +41,7 @@ We're to figure out a solid way to compile the parser definitions to bottom-up p
 (thus left recursions wouldn't be a problem) with the capability of processing context sensitive cases.
 
 You can check following projects to see
-which I've been achieved and, which I'm now researching.
+what I've been achieved and, what I'm now researching.
 
 - https://github.com/thautwarm/RBNF
 - https://github.com/thautwarm/rbnfrbnf
@@ -90,7 +90,7 @@ end
 
 tokens = RBNF.runlexer(YourLang, source_code)
 
-ast, ctx = RBNF.runparser(the_top_parser_defined_in_grammar_section, tokens)
+ast, ctx = RBNF.runparser(parser_defined_in_grammar_section, tokens)
 ```
 
 ## Tokenizer
