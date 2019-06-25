@@ -4,10 +4,10 @@ The Restructured BNF(RBNF) aims at the generating parsers without requiring redu
 
 RBNF is designed for
 
-- Maintainability: Unlike Regex, RBNF's good readability makes more sense in the syntax level.
-- Conciseness: Avoid self-repeating you did with other parser generators.
+- Maintainability: unlike Regex, RBNF's good readability makes more sense in the syntax level.
+- Conciseness: avoid self-repeating you did with other parser generators.
 - Efficiency: RBNF just specifies the semantics, we could use customizable back ends/parsing algorithms here.
-- Extensibility: Mix Julia meta-programming with the notations to define parsers/lexers.
+- Extensibility: mix Julia meta-programming with the notations to define parsers/lexers.
 
 Taking advantage of a BNF source block, **lexers** and **parsers** are generated as well as
 some data type definitions representing tokenizers and ASTs.
