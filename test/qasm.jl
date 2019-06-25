@@ -5,6 +5,7 @@ using RBNF
 using PrettyPrint
 
 struct QASMLang end
+
 second((a, b)) = b
 second(vec::V) where V <: AbstractArray = vec[2]
 
