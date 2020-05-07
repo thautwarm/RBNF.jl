@@ -11,7 +11,7 @@ function _genlex(argsym, retsym, lexer_table, reserved_words)
             s = $v($argsym, offset)
             if s !== nothing
             line_inc = count(x -> x === '\n', s)
-            n = length(s)
+            n = ncodeunits(s)
             push!($retsym, $Token{$token_type}(lineno, colno, offset, s, n))
             if  line_inc === 0
                 colno += n
@@ -45,7 +45,7 @@ function genlex(lexer_table, reserved_words)
             colno  :: $Int32 = 1
             offset :: $Int64  = 1
             ret = $Token[]
-            N :: $Int64 = $length(tokens)
+            N :: $Int64 = $ncodeunits(tokens)
             while offset <= N
                 $(_genlex(:tokens, :ret, lexer_table, reserved_words))
             end

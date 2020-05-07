@@ -17,27 +17,34 @@ end
 struct AliasContext
 end
 
-@active QuoteNodeD(c) begin
-    if c isa QuoteNode
-        c.value
-    end
-end
-
 typename(name, lang) = Symbol("Struct_", name)
 
 const r_str_v = Symbol("@r_str")
 function collect_lexer!(lexers, name, node)
-    @match node begin
-        :(@quote $_ ($(left::String), $(escape::String), $(right::String))) => push!(lexers, (name, LexerSpec(Quoted(left, right, escape))))
-        Expr(:macrocall, &r_str_v, ::LineNumberNode, s) => push!(lexers, (name, LexerSpec(Regex(s))))
-        c::Union{Char, String, Regex} => push!(lexers, (name, LexerSpec(c)))
-        :($subject.$(::Symbol)) => collect_lexer!(lexers, name, subject)
-        Expr(head, tail...) => foreach(x -> collect_lexer!(lexers, name, x), tail)
-        QuoteNodeD(c::Symbol) =>
-             begin
-                push!(lexers, (:reserved, LexerSpec(String(c))))
-             end
-        _ => nothing
+    @switch node begin
+       @case :(@quote $_ ($(left::String), $(escape::String), $(right::String)))
+            push!(lexers, (name, LexerSpec(Quoted(left, right, escape))))
+            return
+        @case Expr(:macrocall, &r_str_v, ::LineNumberNode, s)
+            push!(lexers, (name, LexerSpec(Regex(s))))
+            return
+         
+        @case c::Union{Char, String, Regex}
+            push!(lexers, (name, LexerSpec(c)))
+            return
+        
+        @case :($subject.$(::Symbol))
+            return collect_lexer!(lexers, name, subject)
+        
+        @case Expr(head, tail...)
+            return foreach(x -> collect_lexer!(lexers, name, x), tail)
+
+        @case QuoteNode(c::Symbol)
+            push!(lexers, (:reserved, LexerSpec(String(c))))
+            return
+        @case _    
+            @warn "$node not recognised as a token, ignoring it."
+            return
     end
     nothing
 end
@@ -52,7 +59,7 @@ end
 
 @active MacroSplit{s}(x) begin
     @match x begin
-        Expr(:macrocall, &(Symbol("@", s)), ::LineNumberNode, arg) => arg
+        Expr(:macrocall, &(Symbol("@", s)), ::LineNumberNode, arg) => Some(arg)
         _ => nothing
     end
 end
@@ -76,7 +83,7 @@ function collect_context(node)
             IsMacro{:token} =>
                 begin
                     collector = @λ begin
-                        :($name := $node) ->  push!(tokens, (name, node))
+                        :($name := $node) -> push!(tokens, (name, node))
                         a -> throw(a)
                     end
                 end
@@ -117,7 +124,6 @@ function collect_context(node)
     end
     union!(reserved_words, Set([v.a for (k, v) in unnamed_lexers if k === :reserved]))
     union!(lexers, unnamed_lexers)
-    # pprint(lexers.dict.keys)
     lexer_table :: Vector{Tuple{Symbol, Expr}} = [(k, mklexer(v)) for (k, v) in  lexers]
     PContext(reserved_words, lexer_table, ignores, tokens, grammars)
 end
@@ -125,6 +131,7 @@ end
 
 get_lexer_type(::LexerSpec{T}) where T = T
 function sort_lexer_spec(lexer_table)
+    println(lexer_table)
     new_lexer_table = []
     segs = []
     seg = []
@@ -285,12 +292,12 @@ function make(node, top, mod::Module)
                 :($tokenparser(x -> $match($r, x.str) !== nothing))
             end
 
-        (QuoteNodeD(sym::Symbol)) && Do(s = String(sym)) ||
+        (QuoteNode(sym::Symbol)) && Do(s = String(sym)) ||
         (c ::Char) && Do(s = String([c]))    ||
         s::String => :($tokenparser(x -> x.str == $s))
 
         :(!$(s :: Char)) && Do(s=String([s]))     ||
-        :(!$(QuoteNodeD(sym::Symbol))) && Do(s=String(sym)) ||
+        :(!$(QuoteNode(sym::Symbol))) && Do(s=String(sym)) ||
         :(!$(s::String)) => :($tokenparser(x -> x.str != $s))
 
         :_      => :($tokenparser(x -> true))
