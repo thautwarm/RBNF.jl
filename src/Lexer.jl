@@ -67,7 +67,7 @@ function mklexer(a :: LexerSpec{Char})
 end
 
 function mklexer(a :: LexerSpec{String})
-    let str = a.a, n = length(str)
+    let str = a.a, n = ncodeunits(str)
         quote (chars, i) ->
             startswith(SubString(chars, i), $str) ? $str : nothing
         end
@@ -98,22 +98,22 @@ function mklexer(a :: LexerSpec{Quoted})
         quote
             function (chars, i)
                 off = i
-                n = $length(chars)
+                n = $ncodeunits(chars)
                 subs = SubString(chars, off)
                 if $startswith(subs, $left)
-                    off = off + $(length(left))
+                    off = off + $(ncodeunits(left))
                 else
                     return nothing
                 end
                 while off <= n
                     subs = SubString(chars, off)
                     if $startswith(subs, $right)
-                        off = off + $(length(right))
+                        off = off + $(ncodeunits(right))
                         # so tricky here for the impl of Julia string.
                         return chars[i:prevind(chars, off)]
                     end
                     if $startswith(subs, $escape)
-                        off = off + $(length(escape))
+                        off = off + $(ncodeunits(escape))
                     else
                         off = nextind(chars, off)
                     end
