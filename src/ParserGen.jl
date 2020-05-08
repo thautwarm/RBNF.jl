@@ -293,10 +293,10 @@ function make(node, top, mod::Module)
             end
 
         (QuoteNode(sym::Symbol)) && Do(s = String(sym)) ||
-        (c ::Char) && Do(s = String([c]))    ||
+        (c ::Char) && let s = String([c]) end    ||
         s::String => :($tokenparser(x -> x.str == $s))
 
-        :(!$(s :: Char)) && Do(s=String([s]))     ||
+        :(!$(s :: Char)) && let s=String([s]) end     ||
         :(!$(QuoteNode(sym::Symbol))) && Do(s=String(sym)) ||
         :(!$(s::String)) => :($tokenparser(x -> x.str != $s))
 
