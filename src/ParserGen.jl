@@ -42,8 +42,7 @@ function collect_lexer!(lexers, name, node)
         @case QuoteNode(c::Symbol)
             push!(lexers, (:reserved, LexerSpec(String(c))))
             return
-        @case _    
-            @warn "$node not recognised as a token, ignoring it."
+        @case _
             return
     end
     nothing
@@ -131,7 +130,6 @@ end
 
 get_lexer_type(::LexerSpec{T}) where T = T
 function sort_lexer_spec(lexer_table)
-    println(lexer_table)
     new_lexer_table = []
     segs = []
     seg = []
