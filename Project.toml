@@ -1,7 +1,7 @@
 name = "RBNF"
 uuid = "83ef0002-5b9e-11e9-219b-65bac3c6d69c"
 authors = ["thautwarm <twshere@outlook.com>"]
-version = "0.2"
+version = "0.2.1"
 
 [deps]
 DataStructures = "864edb3b-99cc-5e75-8d2d-829cb0a9cfe8"
@@ -9,8 +9,9 @@ MLStyle = "d8e11817-5142-5d16-987a-aa16d5891078"
 PrettyPrint = "8162dcfd-2161-5ef2-ae6c-7681170c5f98"
 
 [compat]
-MLStyle = "^0.4.0"
+MLStyle = "^0.4.2"
 julia = ">= 1.0"
+PrettyPrint = "^0.1"
 
 [extras]
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
