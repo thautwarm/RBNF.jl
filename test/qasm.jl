@@ -15,7 +15,7 @@ RBNF.@parser QASMLang begin
 
     @grammar
     # define grammars
-    mainprogram := ["OPENQASM", ver=real, ';', prog=program]
+    mainprogram := ["OPENQASM", ver=nnreal, ';', prog=program]
     program     = statement{*}
     statement   = (decl | gate | opaque | qop | ifstmt | barrier)
     # stmts
@@ -54,14 +54,14 @@ RBNF.@parser QASMLang begin
     argument   := [id=id, ['[', (arg=nninteger), ']'].?]
 
     explist    = @direct_recur begin
-        init = exp
-        prefix = (recur,  (',', exp) % second)
+        init = nnexp
+        prefix = (recur,  (',', nnexp) % second)
     end
 
-    atom       = (real | nninteger | "pi" | id | fnexp) | (['(', exp, ')'] % second) | neg
-    fnexp      := [fn=fn, '(', arg=exp, ')']
-    neg        := ['-', value=exp]
-    exp        = @direct_recur begin
+    atom       = (nnreal | nninteger | "pi" | id | fnexp) | (['(', nnexp, ')'] % second) | neg
+    fnexp      := [fn=fn, '(', arg=nnexp, ')']
+    neg        := ['-', value=nnexp]
+    nnexp        = @direct_recur begin
         init = atom
         prefix = (recur, binop, atom)
     end
@@ -71,7 +71,7 @@ RBNF.@parser QASMLang begin
     # define tokens
     @token
     id        := r"\G[a-z]{1}[A-Za-z0-9_]*"
-    real      := r"\G([0-9]+\.[0-9]*|[0-9]*\.[0.9]+)([eE][-+]?[0-9]+)?"
+    nnreal    := r"\G([0-9]+\.[0-9]*|[0-9]*\.[0.9]+)([eE][-+]?[0-9]+)?"
     nninteger := r"\G([1-9]+[0-9]*|0)"
     space     := r"\G\s+"
 end
