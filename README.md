@@ -248,7 +248,7 @@ ab_no_a = ['a', 'b'] % (x -> x[1])
 
 `ab_no_a` produces `Token(str="b")` if it gets parsed successfully.
 
-## Paramterised Polymorphisms
+## Parameterised Polymorphisms
 
 Firstly define such a function in the global scope:
 
