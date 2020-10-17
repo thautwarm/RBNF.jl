@@ -142,6 +142,17 @@ c := [a='a', b='b']
 `c` parses `[Token(str="a", ...), Token(str="b", ...)]`,
 and outputs `Struct_c(a=Token(str="a", ...), b=Token(str="b", ...))`.
 
+P.S: rule `c` will produce instances of automatically generated data types `Struct_c`. You can specify the names of generated structs by
+
+```julia
+RBNF.typename(your_language, name::Symbol) = ...
+# transform name. 
+# e.g., "c" -> "Struct_c":
+# 
+RBNF.typename(your_language, name::Symbol) = Symbol(:Struct_, name)
+```
+
+
 ## Custom Data Types
 
 Firstly you just define your own data type in the global scope of current module.

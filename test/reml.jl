@@ -34,7 +34,7 @@ join_rule(sep, x) = begin
     :([$x, ([$sep, $x] % second){*}] % x -> GoodSeq(x[1], x[2]))
 end
 
-RBNF.typename(name:: Symbol, ::Type{ReML}) = Symbol(:R, name)
+RBNF.typename(::Type{ReML}, name:: Symbol) = Symbol(:R, name)
 
 RBNF.@parser ReML begin
     # define the ignores

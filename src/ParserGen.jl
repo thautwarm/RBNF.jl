@@ -17,7 +17,10 @@ end
 struct AliasContext
 end
 
-typename(name, lang) = Symbol("Struct_", name)
+
+typename(lang, name::Symbol) = Symbol("Struct_", name)
+typename(name::Symbol, lang) = typename(lang, name)
+
 
 const r_str_v = Symbol("@r_str")
 function collect_lexer!(lexers, name, node)
@@ -202,7 +205,7 @@ function parser_gen(pc :: PContext, lang, mod::Module)
     )
     for (each, struct_name, _, is_grammar_node) in pc.grammars
         if struct_name === nothing
-            struct_name = typename(each, lang)
+            struct_name = typename(lang, each)
         end
         push!(decl_seqs, quote
             $RBNF.runparser(::$typeof($each), tokens :: $Vector{$Token}) =
@@ -256,13 +259,26 @@ end
 function grammar_gen(name::Symbol, struct_name, def_body, is_grammar_node, mod, lang)
     vars = OrderedDict{Symbol, Any}()
     analyse_closure!(vars, def_body)
-    if struct_name === nothing
-        struct_name = typename(name, lang)
-        struct_def = quote
+    struct_def = if struct_name === nothing
+        struct_name = typename(lang, name)
+         quote
             struct $struct_name
                 $([Expr(:(::), k, v) for (k, v) in vars]...)
             end
             $RBNF.crate(::Type{$struct_name}) = $struct_name($([:($crate($v)) for v in values(vars)]...))
+        end
+    else
+        rt_t = mod.eval(struct_name)
+        ms = methods(RBNF.crate, (Type{rt_t}, ))
+        if isempty(ms)
+            rt_t isa UnionAll && 
+                error("cannot create automatic RBNF.crate for type $struct_name")
+            field_ts = rt_t.types
+            quote    
+                $RBNF.crate(::Type{$rt_t}) = $struct_name($([:($crate($v)) for v in field_ts]...))
+            end
+        else
+            nothing
         end
     end
     parser_skeleton_name = gensym()

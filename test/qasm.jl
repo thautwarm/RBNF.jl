@@ -9,13 +9,20 @@ struct QASMLang end
 second((a, b)) = b
 second(vec::V) where V <: AbstractArray = vec[2]
 
+parseReal(x::RBNF.Token) = parse(Float64, x.str)
+
+struct MainProgram
+    ver :: Real
+    prog
+end
+RBNF.typename(::Type{QASMLang}, name::Symbol) = Symbol(:S_, name)
 RBNF.@parser QASMLang begin
     # define ignorances
     ignore{space}
 
     @grammar
     # define grammars
-    mainprogram := ["OPENQASM", ver=nnreal, ';', prog=program]
+    mainprogram::MainProgram := ["OPENQASM", ver=nnreal % parseReal, ';', prog=program]
     program     = statement{*}
     statement   = (decl | gate | opaque | qop | ifstmt | barrier)
     # stmts
