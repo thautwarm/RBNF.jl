@@ -1,5 +1,11 @@
 AST = Any
 
+const NODE_PREFIX = Ref("Struct_")
+
+function set_prefix(prefix::String)
+    NODE_PREFIX[] = prefix
+end
+
 function runlexer
 end
 
@@ -17,7 +23,7 @@ end
 struct AliasContext
 end
 
-typename(name, lang) = Symbol("Struct_", name)
+typename(name, lang) = Symbol(NODE_PREFIX[], name)
 
 const r_str_v = Symbol("@r_str")
 function collect_lexer!(lexers, name, node)
