@@ -15,5 +15,5 @@ end
 
 Create a Token of type `T` with content of given `str::String`.
 """
-Token{T}(str::String; lineno::Int=0, colno::Int=0, offset::Int=0, span::Int=0) where T =
-    Token{T}(lineno, colno, offset, str, span)
+Token{T}(str; lineno::Int=0, colno::Int=0, offset::Int=0, span::Int=0) where T =
+    Token{T}(lineno, colno, offset, String(str), span)
