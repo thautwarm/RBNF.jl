@@ -389,8 +389,10 @@ function make(node, top, mod::Module)
                     end
                 end
                 reducer, trailer = @match prefix begin
+                    :[recur..., $(trailer...)] => (:((prev, now) -> [prev..., now...]), trailer)
                     :[recur, $(trailer...)] => (:((prev, now) -> [prev, now...]), trailer)
                     :(recur, $(trailer...), ) => (:((prev, now) -> (prev, now...)), trailer)
+                    :(recur..., $(trailer...), ) => (:((prev, now) -> (prev..., now...)), trailer)
                     _ => throw("invalid syntax for direct_recur")
                 end
                 if isempty(trailer)

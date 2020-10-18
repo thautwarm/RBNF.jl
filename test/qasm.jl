@@ -70,7 +70,7 @@ RBNF.@parser QASMLang begin
     neg        := ['-', value=nnexp]
     nnexp        = @direct_recur begin
         init = atom
-        prefix = (recur, binop, atom)
+        prefix = [recur..., binop, atom]
     end
     fn         = ("sin" | "cos" | "tan" | "exp" | "ln" | "sqrt")
     binop      = ('+' | '-' | '*' | '/')

@@ -279,4 +279,19 @@ but you should define the `expression` yourself.
 
 ## @direct_recur
 
-TODO. you can check the "tests" directory for the examples.
+Provided for supporting direct left recursions.
+
+```julia
+a = @direct_recur begin
+    init = ['a']
+    prefix = [recur..., 'a']
+end
+# parse aaa to [Token_a, Token_a, Token_a]
+
+a = @direct_recur begin
+    init = ['a']
+    prefix = [recur, 'a']
+end
+# parse aaa to [[[Token_a], Token_a], Token_a]
+
+```
