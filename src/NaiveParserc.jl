@@ -24,7 +24,7 @@ end
 
 orparser(pa, pb) = function (ctx_tokens)
     @match pa(ctx_tokens) begin
-        (nothing, ctx_tokens) => pb(ctx_tokens)
+        (nothing, _) => pb(ctx_tokens)
         _ && a =>  a
     end
 end
@@ -203,7 +203,7 @@ function crate(::Type{Union{T, Nothing}}) where T
     nothing
 end
 
-function crate(::Type{Bool}) where T
+function crate(::Type{Bool})
     false
 end
 
@@ -215,7 +215,7 @@ function crate(::Type{String})
     ""
 end
 
-function crate(::Type{Any}) where T
+function crate(::Type{Any})
     nothing
 end
 
