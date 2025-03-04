@@ -85,7 +85,7 @@ function collect_context(node)
             IsMacro{:token} =>
                 begin
                     collector = @λ begin
-                        :($name := $node) -> push!(tokens, (name, node))
+                        :($name := $node) => push!(tokens, (name, node))
                         a -> throw(a)
                     end
                 end
