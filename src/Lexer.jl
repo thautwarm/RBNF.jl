@@ -29,9 +29,9 @@ function _genlex(argsym, retsym, lexer_table, reserved_words)
 end
 
 rmlines = @λ begin
-    e :: Expr           -> Expr(e.head, filter(x -> x !== nothing, map(rmlines, e.args))...)
-      :: LineNumberNode -> nothing
-    a                   -> a
+    e :: Expr           => Expr(e.head, filter(x -> x !== nothing, map(rmlines, e.args))...)
+      :: LineNumberNode => nothing
+    a                   => a
 end
 
 struct LexerSpec{K}

@@ -85,8 +85,8 @@ function collect_context(node)
             IsMacro{:token} =>
                 begin
                     collector = @λ begin
-                        :($name := $node) -> push!(tokens, (name, node))
-                        a -> throw(a)
+                        :($name := $node) => push!(tokens, (name, node))
+                        a => throw(a)
                     end
                 end
             IsMacro{:grammar} =>
@@ -408,9 +408,9 @@ function make(node, top, mod::Module)
 end
 
 rmlines = @λ begin
-           e :: Expr           -> Expr(e.head, filter(x -> x !== nothing, map(rmlines, e.args))...)
-             :: LineNumberNode -> nothing
-           a                   -> a
+           e :: Expr           => Expr(e.head, filter(x -> x !== nothing, map(rmlines, e.args))...)
+             :: LineNumberNode => nothing
+           a                   => a
 end
 
 
