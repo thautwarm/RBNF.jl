@@ -1,7 +1,7 @@
 name = "RBNF"
 uuid = "83ef0002-5b9e-11e9-219b-65bac3c6d69c"
-authors = ["thautwarm <twshere@outlook.com>"]
 version = "0.2.4"
+authors = ["thautwarm <twshere@outlook.com>"]
 
 [deps]
 DataStructures = "864edb3b-99cc-5e75-8d2d-829cb0a9cfe8"
@@ -15,6 +15,7 @@ PrettyPrint = "~0.2"
 julia = "1"
 
 [extras]
+Coverage = "a2441757-f08a-58be-9541-e8b3aa2fd2a5"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
