@@ -1,6 +1,6 @@
 name = "RBNF"
 uuid = "83ef0002-5b9e-11e9-219b-65bac3c6d69c"
-version = "0.2.4"
+version = "0.2.5"
 authors = ["thautwarm <twshere@outlook.com>"]
 
 [deps]
